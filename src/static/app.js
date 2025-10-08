@@ -20,14 +20,63 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const spotsLeft = details.max_participants - details.participants.length;
 
-        activityCard.innerHTML = `
-          <h4>${name}</h4>
-          <p>${details.description}</p>
-          <p><strong>Schedule:</strong> ${details.schedule}</p>
-          <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
-        `;
+          activityCard.innerHTML = `
+            <h4>${name}</h4>
+            <p>${details.description}</p>
+            <p><strong>Schedule:</strong> ${details.schedule}</p>
+            <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+            <div class="participants-section">
+              <strong>Participants:</strong>
+              ${details.participants.length > 0
+                ? `<div class="participants-list">
+                    ${details.participants.map(email => `
+                      <span class="participant-item" data-activity="${name}" data-email="${email}">
+                        <span class="participant-email">${email}</span>
+                        <span class="delete-icon" title="Remove participant">&#128465;</span>
+                      </span>
+                    `).join("")}
+                  </div>`
+                : `<span class="no-participants">No participants yet.</span>`}
+            </div>
+          `;
 
         activitiesList.appendChild(activityCard);
+
+          // Add delete icon event listeners for this activity card
+          setTimeout(() => {
+            const participantItems = activityCard.querySelectorAll('.participant-item');
+            participantItems.forEach(item => {
+              const deleteIcon = item.querySelector('.delete-icon');
+              deleteIcon.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const activityName = item.getAttribute('data-activity');
+                const email = item.getAttribute('data-email');
+                try {
+                  const response = await fetch(`/activities/${encodeURIComponent(activityName)}/unregister?email=${encodeURIComponent(email)}`, {
+                    method: 'POST',
+                  });
+                  if (response.ok) {
+                    fetchActivities(); // Refresh activities list
+                    messageDiv.textContent = `Unregistered ${email} from ${activityName}`;
+                    messageDiv.className = "success";
+                    messageDiv.classList.remove("hidden");
+                    setTimeout(() => { messageDiv.classList.add("hidden"); }, 4000);
+                  } else {
+                    const result = await response.json();
+                    messageDiv.textContent = result.detail || "Failed to unregister participant.";
+                    messageDiv.className = "error";
+                    messageDiv.classList.remove("hidden");
+                    setTimeout(() => { messageDiv.classList.add("hidden"); }, 4000);
+                  }
+                } catch (error) {
+                  messageDiv.textContent = "Error unregistering participant.";
+                  messageDiv.className = "error";
+                  messageDiv.classList.remove("hidden");
+                  setTimeout(() => { messageDiv.classList.add("hidden"); }, 4000);
+                }
+              });
+            });
+          }, 0);
 
         // Add option to select dropdown
         const option = document.createElement("option");
@@ -62,6 +111,7 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        fetchActivities(); // Refresh activities list
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
